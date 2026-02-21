@@ -3,7 +3,7 @@ name: Kubernetes Application Pipeline to AWS
 on:
   push:
     branches: [app]
-
+    workflow_dispatch:
 jobs:
   deploy:
     runs-on: ubuntu-latest
