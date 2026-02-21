@@ -53,7 +53,7 @@ barakat-2025-capstone/
 - Clone the repo to your local machine
 
   ```bash
-  git clone https://github.com/PhilipOyelegbin/barakat-2025-capstone.git
+  git clone https://github.com/Akinsh/barakat-2025-capstone.git
 
   cd barakat-2025-capstone
   ```
@@ -101,17 +101,6 @@ The CI-CD pipeline runs based on the updated folder. If the terraform folder is 
 - Apply: This phase is triggered when a PR is merged to the **main** branch from the **staging** branch.
 - Cleanup: This phase is triggered when a PR is merged to the **clean** branch.
 
-![snapshot](./evidence/infra.png)
-
-**Application Pipeline**
-
-- Deploy: This phase is triggered when a PR is merged to the **app**.
-
-![snapshot](./evidence/app.png)
-![snapshot](./evidence/pipeline.png)
-![snapshot](./evidence/appui.png)
-
----
 
 ## 🎯 Task Completed
 
