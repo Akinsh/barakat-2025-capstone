@@ -1,4 +1,5 @@
 terraform.tfvars
+terraform.tfstate
 .terraform/
 bedrock-dev-credentials.txt
 lambda_function.zip
