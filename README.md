@@ -14,6 +14,9 @@ Success looks like: A fully automated infrastructure pipeline, a running applica
 - Terraform v1.14.3
 - AWS CLI
 - Helm
+- Kubectl
+- Git
+- Docker
 
 ---
 
