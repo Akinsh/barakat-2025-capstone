@@ -1,0 +1,164 @@
+name: Infrastructure CI/CD Pipeline to AWS
+
+on:
+  push:
+    branches: [main, staging, clean]
+    paths:
+      - "terraform/**"
+  pull_request:
+    branches: [main, staging]
+    paths:
+      - "terraform/**"
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Terraform Plan
+        run: echo "Changes detected in terraform, running plan..."
+
+      - name: Set up terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.14.3"
+          terraform_wrapper: false
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Create a tfvars file
+        run: |
+          cat <<'EOF' > ./terraform/terraform.tfvars
+          project_name       = "bedrock"
+          project_tag        = "barakat-2025-capstone"
+          aws_region         = "${{ secrets.AWS_REGION }}"
+          terraform_role_arn = "${{ secrets.TERRAFORM_ROLE_ARN }}"
+          EOF
+
+      - name: Scan code for exposed secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Initialize Terraform
+        run: terraform init
+        working-directory: ./terraform
+
+      - name: Validate Terraform
+        run: terraform validate
+        working-directory: ./terraform
+
+      - name: Plan Terraform and save plan to file
+        run: terraform plan
+        working-directory: ./terraform
+
+  apply:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Terraform Apply
+        run: echo "Changes detected in terraform, running apply..."
+
+      - name: Set up terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.14.3"
+          terraform_wrapper: false
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Create a tfvars file
+        run: |
+          cat <<'EOF' > ./terraform/terraform.tfvars
+          project_name       = "bedrock"
+          project_tag        = "barakat-2025-capstone"
+          aws_region         = "${{ secrets.AWS_REGION }}"
+          terraform_role_arn = "${{ secrets.TERRAFORM_ROLE_ARN }}"
+          EOF
+
+      - name: Initialize Terraform
+        run: terraform init
+        working-directory: ./terraform
+
+      - name: Apply Terraform plan
+        run: terraform apply -auto-approve
+        working-directory: ./terraform
+
+      # - name: Send Slack Notification
+      #   if: always()
+      #   uses: rtCamp/action-slack-notify@v2
+      #   env:
+      #     SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+      #     SLACK_MESSAGE: "Backend deployment to Docker on EC2 is complete! 🎉"
+
+  cleanup:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/clean'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.14.3"
+          terraform_wrapper: false
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Scan code for exposed secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create a tfvars file
+        run: |
+          cat <<'EOF' > ./terraform/terraform.tfvars
+          project_name       = "bedrock"
+          project_tag        = "barakat-2025-capstone"
+          aws_region         = "${{ secrets.AWS_REGION }}"
+          terraform_role_arn = "${{ secrets.TERRAFORM_ROLE_ARN }}"
+          EOF
+
+      - name: Destroy deployed apps
+        run: ./destroy-app.sh
+        working-directory: ./scripts
+
+      - name: Initialize Terraform
+        run: terraform init
+        working-directory: ./terraform
+
+      - name: Force Empty S3 Bucket
+        run: |
+          echo "Emptying bucket: ${{ secrets.ASSET_BUCKET_NAME }}"
+          aws s3 rm s3://${{ secrets.ASSET_BUCKET_NAME }} --recursive
+        working-directory: ./terraform
+        continue-on-error: true
+
+      - name: Destroy Terraform-managed infrastructure
+        run: terraform destroy -auto-approve
+        working-directory: ./terraform
